@@ -1,4 +1,4 @@
 <Solution>
-  <Project Path="X4 Extractor/X4-Extractor.csproj" />
   <Project Path="X4-Data/X4-Data.csproj" Id="d82a2d93-cc65-4bff-9a15-4e635b001059" />
+  <Project Path="X4-Extractor/X4-Extractor.csproj" />
 </Solution>

@@ -11,7 +11,7 @@ namespace X4Extractor
         public string Abb { get; init; }
         public Races Race { get; init; }
         public Factions Id { get; init; }
-        public Licences[] Licenses { get; init; }
+        public Licenses[] Licenses { get; init; }
         public Dictionary<Wares, bool> Items { get; init; }
     }
 
@@ -31,18 +31,17 @@ namespace X4Extractor
         public Groups? Category { get; init; }
         public uint Volume { get; init; }
         public (uint Min, uint Avg, uint Max) Prices { get; init; }
-        public Ware(IWare @base) => (Id, Class, Category, Volume, Prices)
-        = (@base.Id, @base.Class, @base.Category, @base.Volume, @base.Prices);
+        public Ware(IWare @base) : this(@base.Id, @base.Class, @base.Category, @base.Volume, @base.Prices) { }
         public Ware(Wares id, Transports @class, Groups? category, uint volume, (uint Min, uint Avg, uint Max) prices)
             => (Id, Class, Category, Volume, Prices) = (id, @class, category, volume, prices);
     }
 
-    public partial record struct Formula
+    public partial record Formula
     {
+        public Dictionary<Wares, uint> Materials { get; init; } = [];
         public float Time { get; init; }
         public int Amount { get; init; }
         public Methods Method { get; init; }
-        public Dictionary<Wares, uint> Materials { get; init; }
         public float BounceRate { get; init; }
     }
 
@@ -57,7 +56,7 @@ namespace X4Extractor
     {
         public string Source { get; init; }
         public List<Factions> Economy { get; }
-        public Licences? Restriction { get; }
+        public Licenses? Restriction { get; }
     }
 
     public partial record EndPoint : Product, IExtendable
@@ -65,11 +64,11 @@ namespace X4Extractor
         public string Source { get; init; }
         public List<Tags> Attributes { get; init; } = [];
         public List<Factions> Economy { get; init; } = [];
-        public Licences? Restriction { get; init; }
+        public Licenses? Restriction { get; init; }
 
         internal object? Reference;
 
-        public EndPoint(Product @base, string source, Licences? restriction) : base(@base)
+        public EndPoint(Product @base, string source, Licenses? restriction) : base(@base)
             => (Source, Restriction) = (source, restriction);
     }
 }

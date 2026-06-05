@@ -14,6 +14,7 @@ namespace X4Extractor
         public static implicit operator string(TextRef serial) => $"{{{serial.PageId},{serial.TextId}}}";
         public static explicit operator TextRef(string literal)
         {
+            if (literal[0] != '{' || literal[^1] != '}') return Invalid;
             string[] strpair = literal.Replace(" ", "")[1..^1].Split(',');
             return new TextRef
             {
@@ -25,11 +26,14 @@ namespace X4Extractor
 
     internal class TextPool
     {
+        // Maybe add a EnterLazy() method, we don't need this singleton to hold the entire text pages the entire time
+        // The symbolizer will handle the most queries, so maybe we can just unload the XElements and read them from disk again when needed
+
         public static readonly uint[] BurnedPages = [
             20201, 20113, 20107, 20202, 20111, 20104, 20006, 20102,
             20216, 20106, 20101, 20105, 20115, 1001, 20208, 20203,
             1013, 20226, 20403, 20110, 20224, 20114, 20109, 20108
-        ]; // result based on activated pages after a full extraction, currently unused but may be used for optimization in the future.
+        ]; // result based on activated pages after a full extraction
         public static readonly Dictionary<string, string> LangSelf = new()
         {
             { "\x45\x6e\x67\x6c\x69\x73\x68", "English" },
@@ -54,7 +58,6 @@ namespace X4Extractor
         public static TextPool Service => _textdata ?? throw new NullReferenceException("TextPool not initialized");
         public HashSet<TextRef> Referenced { get; init; } = [];
         public Dictionary<TextRef, string> Cache { get; init; } = [];
-        public string Loading { get; private set; } = "{0,0}";
 
         private TextPool(EnvConfig config)
         {
@@ -101,7 +104,6 @@ namespace X4Extractor
                 return string.Empty;
             if (Cache.TryGetValue(serial, out string? record))
                 return record;
-            Loading = serial;
             Referenced.Add(serial);
             XElement page = _pages![serial.PageId];
             XElement? textElement = page.Descendants("t").FirstOrDefault(t => t.Attribute("id")?.Value == serial.TextId.ToString());
@@ -121,14 +123,14 @@ namespace X4Extractor
 
         public static string Escape(string mixed)
         {
-            int escserial = mixed.IndexOf("\\0");
+            int escserial = mixed.IndexOf("\\0", StringComparison.Ordinal);
             if (escserial == -1) // for "\\033#UI_TAG#some actual text\\033X", remove the \\033s(include 'X') and #UI_TAG#
                 return mixed.Replace("\\n", "\n").Replace("\\\'", "'");
 
             int uiseq = mixed.IndexOf('#');
             mixed = mixed.Remove(uiseq, mixed.LastIndexOf('#') - uiseq + 1);
 
-            int bound = mixed.LastIndexOf("\\0");
+            int bound = mixed.LastIndexOf("\\0", StringComparison.Ordinal);
             mixed = mixed.Remove(escserial, 4).Remove(bound, 5);
 
             return mixed.Replace("\\n", "\n").Replace("\\\'", "'");

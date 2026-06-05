@@ -1,14 +1,18 @@
-﻿#define LOG_CONSOLE_WT
-
-using System.Diagnostics;
-
+﻿// ReSharper disable InconsistentNaming
+// ReSharper disable UnusedMember.Global
 namespace X4Extractor
 {
+    public enum GamePartition
+    {   // do not rename : named by dlc assets dir
+        main, split, terran, 
+        pirate, boron, timelines,
+        mini_01, mini_02,
+        extension
+    }   // do not reorder : ordered by release date
+
     public class EnvConfig
     {
         public const string DataPath = "libraries";
-        public const string ShipdataPath = "assets\\units";
-        public const string ModuledataPath = "assets\\structures";
         public const string LangFileFormat = "t\\0001-l{0:D3}.xml";
         public const bool ImmediateText = true;
 

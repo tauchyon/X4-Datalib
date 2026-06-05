@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Diagnostics;
 using System.Reflection;
 using static X4Extractor.Localization;
 using static X4Extractor.FactionEntry;
@@ -36,7 +35,7 @@ namespace X4Extractor
         {
             if (_service != null)
                 throw new InvalidOperationException();
-            Localization instance = new Localization(EntryTracker.Record, TextPool.Service);
+            Localization instance = new Localization(EntryTracker.Tracker, TextPool.Service);
             instance.EnsureRecords();
             instance.MountPool();
             EnvConfig.Config.OnLanguageChanged += (_,_) => instance.Reload();
@@ -54,8 +53,8 @@ namespace X4Extractor
 
         private static void PreMount()
         {
-            Type[] hosts = [typeof(Races), typeof(Methods), typeof(Factions),
-                typeof(Wares), typeof(Licences)];
+            Type[] hosts = [typeof(Races), typeof(Methods), typeof(Factions), typeof(Groups),
+                typeof(Wares), typeof(Licenses)];
 
             foreach (Type et in hosts)
             {
@@ -80,16 +79,18 @@ namespace X4Extractor
             eraser.UnionWith(_tracker.Races.Cast<IEntry>());
             eraser.UnionWith(_tracker.Methods.Cast<IEntry>());
             eraser.UnionWith(_tracker.Factions.Cast<IEntry>());
-            eraser.UnionWith(_tracker.Factions.SelectMany(f => f.Licenses).Distinct().Cast<IEntry>());
-            eraser.UnionWith(_tracker.Sources.Cast<IEntry>());
+            eraser.UnionWith(_tracker.Licenses.Cast<IEntry>());
+            eraser.UnionWith(_tracker.Wares.Cast<IEntry>());
+            eraser.UnionWith(_tracker.Groups.Cast<IEntry>());
 
             Dictionary<Type, Type> symbolref = new()
             {
                 [typeof(RaceEntry)] = typeof(Races),
                 [typeof(MethodEntry)] = typeof(Methods),
                 [typeof(FactionEntry)] = typeof(Factions),
+                [typeof(GroupEntry)] = typeof(Groups),
                 [typeof(WareEntry)] = typeof(Wares),
-                [typeof(LicenseEntry)] = typeof(Licences)
+                [typeof(LicenseEntry)] = typeof(Licenses)
             };
 
             foreach (IEntry entry in eraser)
@@ -130,7 +131,7 @@ namespace X4Extractor
                     Console.WriteLine($"[CRITICAL] {label} Enum Data mismatched: [{string.Join(',', diff)}]");
             }
 
-            _ = _tracker.AccLicences().Select(Licences.License).ToArray();
+            _ = _tracker.AccLicences().Select(Licenses.License).ToArray();
             _ = _tracker.AccWares().Select(Wares.Ware).ToArray();
             _ = _tracker.AccTags().Select(Tags.Tag).ToArray();
         }
@@ -219,44 +220,44 @@ namespace X4Extractor
     }
 
     [IndexSequence(4)]
-    public record struct Licences
+    public record struct Licenses
     {
-        public static readonly Dictionary<string, Licences> EnumPool = new(StringComparer.OrdinalIgnoreCase);
-        public static readonly Dictionary<Licences, int> EnumIndex = [];
+        public static readonly Dictionary<string, Licenses> EnumPool = new(StringComparer.OrdinalIgnoreCase);
+        public static readonly Dictionary<Licenses, int> EnumIndex = [];
 
-        public static readonly Licences GeneralShip = new("generaluseship");
-        public static readonly Licences GeneralEquipment = new("generaluseequipment");
-        public static readonly Licences MilitaryShip = new("militaryship");
-        public static readonly Licences MilitaryEquipmentt = new("militaryequipment");
-        public static readonly Licences CapitalShip = new("capitalship");
-        public static readonly Licences CapitalEquipment = new("capitalequipment");
-        public static readonly Licences WharfBuilding = new("station_equip_sm");
-        public static readonly Licences ShipyardBuilding = new("station_equip_lxl");
-        public static readonly Licences GenBasicModule = new("station_gen_basic");
-        public static readonly Licences GenMediumModule = new("station_gen_intermediate");
-        public static readonly Licences GenAdvanceModule = new("station_gen_advanced");
+        public static readonly Licenses GeneralShip = new("generaluseship");
+        public static readonly Licenses GeneralEquipment = new("generaluseequipment");
+        public static readonly Licenses MilitaryShip = new("militaryship");
+        public static readonly Licenses MilitaryEquipmentt = new("militaryequipment");
+        public static readonly Licenses CapitalShip = new("capitalship");
+        public static readonly Licenses CapitalEquipment = new("capitalequipment");
+        public static readonly Licenses WharfBuilding = new("station_equip_sm");
+        public static readonly Licenses ShipyardBuilding = new("station_equip_lxl");
+        public static readonly Licenses GenBasicModule = new("station_gen_basic");
+        public static readonly Licenses GenMediumModule = new("station_gen_intermediate");
+        public static readonly Licenses GenAdvanceModule = new("station_gen_advanced");
 
         private static int _enumCount = 0;
 
         public string Id { get; }
 
-        private Licences(string id)
+        private Licenses(string id)
         {
             EnumPool[Id = id] = this;
             EnumIndex[this] = _enumCount++;
         }
 
         public static int Index(string licence) => EnumIndex[licence];
-        public static explicit operator int(Licences enumval) => EnumIndex[enumval];
-        public static implicit operator string(Licences license) => license.ToString();
-        public static implicit operator Licences(string id) => EnumPool.TryGetValue(id, out Licences venum)
+        public static explicit operator int(Licenses enumval) => EnumIndex[enumval];
+        public static implicit operator string(Licenses license) => license.ToString();
+        public static implicit operator Licenses(string id) => EnumPool.TryGetValue(id, out Licenses venum)
             ? venum : throw new InvalidOperationException("VEnum entry not found");
         public override string ToString() => char.ToUpper(Id[0]) + Id.Substring(1);
         public override int GetHashCode() => Id.GetHashCode();
 
-        public static Licences License(string id) =>
-            EnumPool.TryGetValue(id.ToLower(), out Licences venum) ? venum : new Licences(id);
-        public static Licences? Enum(string? id)
+        public static Licenses License(string id) =>
+            EnumPool.TryGetValue(id.ToLower(), out Licenses venum) ? venum : new Licenses(id);
+        public static Licenses? Enum(string? id)
         {
             if (string.IsNullOrEmpty(id))
                 return null;
@@ -264,15 +265,7 @@ namespace X4Extractor
         }
     }
 
-    // [IndexSequence(5)] The Transports text are coded in scripts
-    public enum Transports : byte
-    {
-        Solid, Liquid, Container, Condensate,
-        Ship, Equipment, Software,
-        Workunit, Passenger, Research,
-        Inventory,
-    }
-
+    [IndexSequence(5)]
     public enum Groups : byte
     {
         Hightech, Energy, Shiptech, Agricultural, Pharmaceutical,
@@ -280,6 +273,15 @@ namespace X4Extractor
         Refined, Food, Minerals, Gases, Ice, Water,
         Software, Hardware, Countermeasures,
         Generalitem, Contraband, Luxuryitem, Curiosity,
+    }
+
+    // [IndexSequence(6)] The Transports text are coded in scripts
+    public enum Transports : byte
+    {
+        Solid, Liquid, Container, Condensate,
+        Ship, Equipment, Software,
+        Workunit, Passenger, Research,
+        Inventory,
     }
 
     public readonly record struct Tags

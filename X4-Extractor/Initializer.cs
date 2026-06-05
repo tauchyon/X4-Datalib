@@ -16,13 +16,15 @@ namespace X4Extractor
 
             DirectoryInfo datadir = new(EnvConfig.Config.GamedataPath);
             foreach (var gamedir in datadir.GetDirectories())
-                XmlExtractor.Extract(gamedir.Name);
-            EntryTracker.Finish();
+                EntryTracker.Tracker.Tracking(gamedir.FullName);
 
             Localization.Initialize();
 
             var extractor = new Extractor();
             extractor.Extract();
+
+            EntryTracker.Tracker.Flush();
+
             return extractor;
         }
     }

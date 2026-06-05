@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\X4 Extractor\X4-Extractor.csproj" />
+    <ProjectReference Include="..\X4-Extractor\X4-Extractor.csproj" />
   </ItemGroup>
 
 </Project>

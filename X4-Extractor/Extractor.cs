@@ -10,6 +10,8 @@ namespace X4Extractor
         private readonly HashSet<XElement> _wareviews = [];
         private readonly Dictionary<TextRef, Methods> _redirects = [];
 
+        public Dictionary<object, GamePartition> Datapart;
+
         public List<Faction> Factions { get; } = [];
         public Dictionary<Factions, Methods> Bindmethods { get; } = [];
 
@@ -20,7 +22,7 @@ namespace X4Extractor
         public List<IExtendable> Endpoint { get; } = [];
 
         internal Extractor()
-            => _tracker = EntryTracker.Record;
+            => _tracker = EntryTracker.Tracker;
 
         public void Extract()
         {
@@ -41,41 +43,16 @@ namespace X4Extractor
                 _redirects[method.Name] = valmethod;
             }
 
-            HashSet<List<XElement>> postreads = [.. _tracker.Postreads.Values];
-            foreach (LinkedList<XElement> mergeQueue in postreads.Select(xes => new LinkedList<XElement>(xes)))
-            {
-                while (mergeQueue.Count > 1)
-                {
-                    XElement current = mergeQueue.Last!.Value;
-                    if (current.Name == "ware")
-                    {
-                        XElement swap = mergeQueue.First!.Value;
-                        Debug.Assert(swap.Name != "ware", "Duplicated ware definition");
-                        mergeQueue.First!.Value = current;
-                        current = mergeQueue.Last!.Value = swap;
-                    }
-                    mergeQueue.First!.Value.Add(current.Elements());
-                    mergeQueue.RemoveLast();
-                }
-                string? illegalstr = mergeQueue.First!.Value.Attribute("illegal")?.Value;
-                if (illegalstr != null)
-                {   // we do not wish to handle the illegal information in separate way, so restructure here
-                    XElement illegal = new("illegal", new XAttribute("factions", illegalstr));
-                    mergeQueue.First!.Value.Add(illegal);
-                }
-                bool unique = _wareviews.Add(mergeQueue.First!.Value);
-                Debug.Assert(unique);
-            }
-
+            _wareviews.UnionWith([.. _tracker.Postreads]);
             HashSet<FactionEntry> factions = _tracker.Factions;
             foreach (FactionEntry facentry in factions)
             {
-                List<Licences> licenses = [];
+                List<Licenses> licenses = [];
 
                 Races race = Parse<Races>(facentry.Race);
                 Factions faction = Parse<Factions>(facentry.Id);
                 foreach (FactionEntry.LicenseEntry lic in facentry.Licenses)
-                    licenses.Add(Licences.License(lic.Id));
+                    licenses.Add(Licenses.License(lic.Id));
 
                 if (methods.Any(me => me.Race == facentry.Race))
                 {
@@ -101,6 +78,7 @@ namespace X4Extractor
             {
                 Debug.Assert(ware.Name == "ware");
                 Wares id = ware.Attribute("id")!.Value;
+                if(id.Id.Contains("_venture")) continue;
                 Transports classval = Enum.Parse<Transports>(ware.Attribute("transport")!.Value, true);
                 Groups? catval = ware.Attribute("group") == null ? null : Enum.Parse<Groups>(ware.Attribute("group")!.Value, true);
                 uint volume = uint.Parse(ware.Attribute("volume")!.Value);
@@ -156,7 +134,7 @@ namespace X4Extractor
                 .Any(xo => string.Compare(xo.Attribute("faction")!.Value, fe.Id.ToString(), true) == 0))
                 .ToList(); owners.ForEach(fe => fe.Items[@base.Id] = true);
             return new EndPoint(@base, xinjection.Element("component")!.Attribute("ref")!.Value,
-                Licences.Enum(xinjection.Element("restriction")?.Attribute("licence")!.Value ?? null)) {
+                Licenses.Enum(xinjection.Element("restriction")?.Attribute("licence")!.Value ?? null)) {
                 Attributes = [.. Tags[@base.Id]],
                 Economy = [.. owners.Select(f => f.Id)]
             };
