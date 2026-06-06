@@ -4,7 +4,7 @@ namespace X4Data
 {
     public enum EWare
     {
-        Concept = 0,
+        Virtual = 0,
         Basic = 1,
         Complex = 2,
         Extends = 3,
@@ -13,8 +13,6 @@ namespace X4Data
     public class X4Context
     {
         private static X4Context? _database;
-
-        private HashSet<string> _refsearch = [];
 
         public static X4Context Context => _database ?? throw new NullReferenceException("Context not initialized");
         public static X4Context Build(string entrypath) => _database is null ? _database = new(X4Wares.Initbase(entrypath)) : throw new InvalidOperationException("Context already initialized");
@@ -40,6 +38,10 @@ namespace X4Data
 
             Derelations = Factions.SelectMany(fac => fac.Items.Select(item => (Ware: item.Key, Relation: (fac.Id, item.Value))))
                 .GroupBy(entry => entry.Ware).ToDictionary(group => group.Key, group => group.Select(entry => entry.Relation).ToList());
+
+            FactionDomains = basedata.Domains;
+            WareDomains = basedata.Partitions;
+            FormulaDomains = basedata.Recipes;
         }
 
         public Dictionary<Wares, EWare> Lookup { get; init; }
@@ -57,5 +59,9 @@ namespace X4Data
         public Dictionary<Factions, Methods> Manufatures { get; init; }
         public Dictionary<Factions, Faction> FactionPool { get; init; }
         public HashSet<Faction> Factions { get; init; }
+
+        public Dictionary<Factions, Gamepart> FactionDomains { get; init; }
+        public Dictionary<Wares, Gamepart> WareDomains { get; init; }
+        public Dictionary<Formula, Gamepart> FormulaDomains { get; init; }
     }
 }

@@ -143,7 +143,7 @@ namespace X4Extractor
         public bool Sealed { get; private set; } = false;
         public readonly Dictionary<string, string> Redirections = [];
         public readonly Dictionary<string, List<string>> Collections = [];
-        public readonly Dictionary<string, GamePartition> Partitions = [];
+        public readonly Dictionary<string, Gamepart> Partitions = [];
 
         public HashSet<FactionEntry.LicenseEntry> Licenses => [.. Factions.SelectMany(f => f.Licenses)];
         public HashSet<RaceEntry> Races { get; private set; }
@@ -175,14 +175,17 @@ namespace X4Extractor
                 _afloats.ForEach(Tracking);
                 _afloats.Clear();
             }
-            else if(_solid) ExtDiff(path);
-            else _afloats.Add(path);
-            Remapping(workspace.FullName);
+            else
+            {
+                Remapping(workspace.FullName);
+                if (_solid) ExtDiff(path);
+                else _afloats.Add(path);
+            }
         }
 
         private void Maingame(string foundation)
         {
-            Partitions[foundation] = GamePartition.main; _solid = true;
+            Partitions[foundation] = Gamepart.main; _solid = true;
             Races = [.. XDocument.Load(Path.Combine(foundation, EnvConfig.DataPath, "races.xml")).Root!.Elements("race")
                 .Where(xr => xr.Attribute("tags")?.Value.Contains("hidden") is not true)
                 .Select(XRace) ];
@@ -196,8 +199,7 @@ namespace X4Extractor
                 .Select(XWare) ];
             Groups = [.. XDocument.Load(Path.Combine(foundation, EnvConfig.DataPath, "waregroups.xml")).Root!
                 .Elements("group")
-                .Select(xg => new GroupEntry
-                    {
+                .Select(xg => new GroupEntry {
                         Id = xg.Attribute("id")!.Value,
                         Name = (TextRef)xg.Attribute("name")!.Value,
                         Tier = int.Parse(xg.Attribute("tier")?.Value ?? "0")
@@ -210,12 +212,18 @@ namespace X4Extractor
 
         private bool? Future(XElement xware)
         {
-            void MoveIllegal(XElement xtar)
+            void DeclWare(XElement xtar)
             {
-                if (xtar.Attribute("illegal") is null) return;
-                string swap = xtar.Attribute("illegal")!.Value;
-                xtar.SetAttributeValue("illegal", null);
-                xtar.Add(new XElement("illegal", new XAttribute("factions", swap)));
+                if (xtar.Attribute("illegal") != null)
+                {
+                    string swap = xtar.Attribute("illegal")!.Value;
+                    xtar.SetAttributeValue("illegal", null);
+                    xtar.Add(new XElement("illegal", new XAttribute("factions", swap)));
+                }
+                xtar.SetAttributeValue("_source", Partitions[_register]);
+                foreach (XElement xprod in xtar.Elements("production"))
+                    xprod.SetAttributeValue("_source", Partitions[_register]);
+                // Faction sources contained in FactionEntry, needn't remark here
             }
 
             void MergeWare(XElement xtar, XElement xmod)
@@ -226,6 +234,8 @@ namespace X4Extractor
                     xtar.Element("illegal")!.Value = xtar.Element("illegal")!.Value + " " + xillegal.Value;
                     xillegal.Remove();
                 }
+                foreach (XElement xprod in xmod.Elements("production"))
+                    xprod.SetAttributeValue("_source", Partitions[_register]);
                 xtar.Add(xmod.Elements());
             }
 
@@ -233,14 +243,13 @@ namespace X4Extractor
             {
                 if (_definition.ContainsKey(xware.Attribute("id")!.Value)) throw new InvalidDataException("Definition collided");
                 string declid = xware.Attribute("id")!.Value;
-                MoveIllegal(xware);
+                DeclWare(xware);
                 Postreads.Add(xware);
                 _definition[declid] = xware;
                 if (!_merging.TryGetValue(declid, out List<XElement>? afloats)) return true;
                 foreach (XElement xmod in afloats)
                     MergeWare(_definition[declid], xmod);
                 _merging.Remove(declid);
-
                 return true;
             }
 
@@ -284,8 +293,7 @@ namespace X4Extractor
             Tags = xfaction.Attribute("tags")?.Value.Split(' ') ?? [],
             Licenses = [.. xfaction.Element("licences")?.Elements("licence")
                 .Where(xl=> xl.Attribute("name") is not null)
-                .Select(xl=> new FactionEntry.LicenseEntry()
-                {
+                .Select(xl=> new FactionEntry.LicenseEntry() {
                     Source = xfaction.Attribute("id")!.Value,
                     Id = xl.Attribute("type")!.Value,
                     Name = (TextRef)xl.Attribute("name")!.Value
@@ -308,7 +316,7 @@ namespace X4Extractor
             XElement redirectory = XDocument.Load(Path.Combine(local, "index", "macros.xml")).Root!;
             redirectory.Add(XDocument.Load(Path.Combine(local, "index", "components.xml")).Root!.Elements());
             if (!Partitions.ContainsKey(local))
-                Partitions[local] = Enum.Parse<GamePartition>(redirectory.Elements("entry")
+                Partitions[local] = Enum.Parse<Gamepart>(redirectory.Elements("entry")
                     .First(e => e.Attribute("value")!.Value.Contains("extensions\\ego_dlc_"))
                     .Attribute("value")!.Value.Substring(19).Split('\\')[0]);
             foreach (XElement dict in redirectory.Elements("entry"))

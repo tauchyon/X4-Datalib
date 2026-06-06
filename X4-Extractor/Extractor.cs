@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Xml.Linq;
 
 namespace X4Extractor
@@ -7,15 +6,18 @@ namespace X4Extractor
     public class Extractor
     {
         private readonly EntryTracker _tracker;
-        private readonly HashSet<XElement> _wareviews = [];
         private readonly Dictionary<TextRef, Methods> _redirects = [];
 
-        public Dictionary<object, GamePartition> Datapart;
+        private HashSet<XElement> _wareviews;
+
+        public Dictionary<Wares, Gamepart> Partitions = [];
+        public Dictionary<Factions, Gamepart> Domains = [];
+        public Dictionary<Formula, Gamepart> Recipes = [];
 
         public List<Faction> Factions { get; } = [];
         public Dictionary<Factions, Methods> Bindmethods { get; } = [];
 
-        public Dictionary<Wares, Tags[]> Tags { get; } = [];
+        public Dictionary<Wares, Tags[]> TagMap { get; } = [];
         public List<IWare> Entire { get; } = [];
         public List<Ware> Basic { get; } = [];
         public List<Product> Complex { get; } = [];
@@ -43,7 +45,7 @@ namespace X4Extractor
                 _redirects[method.Name] = valmethod;
             }
 
-            _wareviews.UnionWith([.. _tracker.Postreads]);
+            _wareviews = [.. _tracker.Postreads];
             HashSet<FactionEntry> factions = _tracker.Factions;
             foreach (FactionEntry facentry in factions)
             {
@@ -51,6 +53,7 @@ namespace X4Extractor
 
                 Races race = Parse<Races>(facentry.Race);
                 Factions faction = Parse<Factions>(facentry.Id);
+                Domains[faction] = EntryTracker.Tracker.Partitions[facentry.Source];
                 foreach (FactionEntry.LicenseEntry lic in facentry.Licenses)
                     licenses.Add(Licenses.License(lic.Id));
 
@@ -74,70 +77,85 @@ namespace X4Extractor
 
         internal void Resolve()
         {
-            foreach (XElement ware in _wareviews)
+            foreach (XElement xware in _wareviews)
             {
-                Debug.Assert(ware.Name == "ware");
-                Wares id = ware.Attribute("id")!.Value;
-                if(id.Id.Contains("_venture")) continue;
-                Transports classval = Enum.Parse<Transports>(ware.Attribute("transport")!.Value, true);
-                Groups? catval = ware.Attribute("group") == null ? null : Enum.Parse<Groups>(ware.Attribute("group")!.Value, true);
-                uint volume = uint.Parse(ware.Attribute("volume")!.Value);
-                XElement xprice = ware.Element("price")!; (uint, uint, uint) prices = (
-                    uint.Parse(xprice.Attribute("min")!.Value),
-                    uint.Parse(xprice.Attribute("average")!.Value),
-                    uint.Parse(xprice.Attribute("max")!.Value)
-                );
+                Debug.Assert(xware.Name == "ware");
+                Wares id = xware.Attribute("id")!.Value;
+                if (id.Id.Contains("_venture")) continue;
 
-                Reindexing(id, ware);
-                Ware unit = new(id, classval, catval, volume, prices);
-                Product? convertible = Manufacture(unit, [.. ware.Elements("production")]);
-                IExtendable? extendable = Component(convertible ?? new Product(unit), ware);
-
-                Entire.Add(extendable ?? (IWare)(convertible ?? unit));
+                TagMap[id] = [.. xware.Attribute("tags")?.Value.Split(' ').Select(Tags.Tag) ?? []];
+                Ware unit = XWare(xware);
+                Product? convertible = XProduct(unit, xware);
+                IExtendable? extendable = XEndPoint(convertible ?? new Product(unit), xware);
+                IWare uware = extendable ?? (IWare)(convertible ?? unit);
+                
+                Indexing(uware,xware);
+                Entire.Add(uware);
                 if(extendable != null) Endpoint.Add(extendable);
                 else if(convertible != null) Complex.Add(convertible);
                 else Basic.Add(unit);
             }
         }
 
-        private void Reindexing(Wares id, XElement xware)
+        private void Indexing(IWare uware, XElement xware)
         {
-            Tags[id] = [.. (xware.Attribute("tags")?.Value ?? "").Split(' ').Select(X4Extractor.Tags.Tag)];
-            Factions.Where(fe => xware.Elements("illegal")
-                .Any(xi => xi.Attribute("factions")!.Value.Contains(fe.Id.ToString().ToLower()))
-                ).ToList().ForEach(fe => fe.Items[id] = false);
+            if (uware is Product product && xware.Element("production") != null)
+            {
+                Recipes = product.Formulas
+                    .Zip(xware.Elements("production"))
+                    .ToDictionary(
+                        x => x.First,
+                        x => Enum.Parse<Gamepart>(x.Second.Attribute("_source")!.Value, true))
+                    .Union(Recipes)
+                    .ToDictionary();
+            }
+            if (uware is EndPoint endpoint)
+            {
+                foreach (Factions faction in endpoint.Economy)
+                    Factions.Single(fe => fe.Id == faction).Items[endpoint.Id] = true;
+            }
+
+            Partitions[uware.Id] = Enum.Parse<Gamepart>(xware.Attribute("_source")!.Value);
+            if(xware.Element("illegal") is null) return;
+            foreach (Faction faction in Factions.Where(f => xware.Element("illegal")!.Attribute("factions")!.Value.Contains(f.Id.ToString(), StringComparison.OrdinalIgnoreCase)))
+                faction.Items[uware.Id] = false;
         }
 
-        private Product? Manufacture(IWare @base, XElement[] xproductions)
-        {
-            if(xproductions.Length == 0) return null;
-            return new Product(@base, [
-                .. xproductions.Select(xp => new Formula {
-                        Time = float.Parse(xp.Attribute("time")!.Value),
-                        Amount = int.Parse(xp.Attribute("amount")!.Value),
-                        Method = _redirects[(TextRef)xp.Attribute("name")!.Value],
-                        Materials = xp.Element("primary")?.Elements("ware")
-                            .ToDictionary(xw => Wares.Ware(xw.Attribute("ware")!.Value), xw => uint.Parse(xw.Attribute("amount")!.Value))
-                            ?? [],
-                        BounceRate = float.Parse(xp.Element("effects")?.Elements("effect")
-                            .SingleOrDefault(xe => xe.Attribute("type") is { Value: "work" })?
-                            .Attribute("product")?.Value ?? "0")
-                    }
-                )
-            ]);
-        }
+        private Ware XWare(XElement xware) => new
+        (
+            id: xware.Attribute("id")!.Value,
+            @class: Enum.Parse<Transports>(xware.Attribute("transport")!.Value, true),
+            category: xware.Attribute("group") == null ? null : Enum.Parse<Groups>(xware.Attribute("group")!.Value, true),
+            volume: uint.Parse(xware.Attribute("volume")!.Value),
+            prices: (
+                uint.Parse(xware.Element("price")!.Attribute("min")!.Value),
+                uint.Parse(xware.Element("price")!.Attribute("average")!.Value),
+                uint.Parse(xware.Element("price")!.Attribute("max")!.Value)
+            )
+        );
 
-        private IExtendable? Component(Product @base, XElement xinjection)
-        {
-            if(xinjection.Element("component") == null) return null;
-            List<Faction> owners = Factions.Where(fe => xinjection.Elements("owner")
-                .Any(xo => string.Compare(xo.Attribute("faction")!.Value, fe.Id.ToString(), true) == 0))
-                .ToList(); owners.ForEach(fe => fe.Items[@base.Id] = true);
-            return new EndPoint(@base, xinjection.Element("component")!.Attribute("ref")!.Value,
-                Licenses.Enum(xinjection.Element("restriction")?.Attribute("licence")!.Value ?? null)) {
-                Attributes = [.. Tags[@base.Id]],
-                Economy = [.. owners.Select(f => f.Id)]
-            };
-        }
+        private Product? XProduct(Ware @base, XElement xware) => xware.Elements("production").Any() ? new Product
+        (@base, [.. xware.Elements("production").Select(xproduction =>
+            new Formula {
+                Time = float.Parse(xproduction.Attribute("time")!.Value),
+                Amount = int.Parse(xproduction.Attribute("amount")!.Value),
+                Method = _redirects[(TextRef)xproduction.Attribute("name")!.Value],
+                Materials = xproduction.Element("primary")?.Elements("ware")
+                    .ToDictionary(xw => Wares.Ware(xw.Attribute("ware")!.Value), xw => uint.Parse(xw.Attribute("amount")!.Value))
+                    ?? [],
+                BounceRate = float.Parse(xproduction.Element("effects")?.Elements("effect")
+                    .SingleOrDefault(xe => xe.Attribute("type") is { Value: "work" })?
+                    .Attribute("product")?.Value ?? "0")
+            })]
+        ) : null;
+
+        private EndPoint? XEndPoint(Product @base, XElement xcomponent) => xcomponent.Element("component") != null ? new EndPoint
+        (@base,
+            source: xcomponent.Element("component")!.Attribute("ref")!.Value,
+            restriction:Licenses.Enum(xcomponent.Element("restriction")?.Attribute("licence")!.Value),
+            attributes: [.. TagMap[@base.Id]],
+            economy: [.. Factions.Where(fe => xcomponent.Elements("owner")
+                .Any(xo => xo.Attribute("faction")!.Value == fe.Id.ToString())).Select(f => f.Id)]
+        ) : null;
     }
 }

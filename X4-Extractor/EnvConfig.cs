@@ -2,7 +2,7 @@
 // ReSharper disable UnusedMember.Global
 namespace X4Extractor
 {
-    public enum GamePartition
+    public enum Gamepart
     {   // do not rename : named by dlc assets dir
         main, split, terran, 
         pirate, boron, timelines,

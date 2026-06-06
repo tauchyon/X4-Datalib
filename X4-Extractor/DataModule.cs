@@ -68,7 +68,8 @@ namespace X4Extractor
 
         internal object? Reference;
 
-        public EndPoint(Product @base, string source, Licenses? restriction) : base(@base)
-            => (Source, Restriction) = (source, restriction);
+        public EndPoint(Product @base, string source, Licenses? restriction,
+            List<Tags> attributes, List<Factions> economy) : base(@base)
+            => (Source, Restriction, Attributes, Economy) = (source, restriction, attributes, economy);
     }
 }
