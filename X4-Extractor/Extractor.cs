@@ -83,7 +83,7 @@ namespace X4Extractor
                 Wares id = xware.Attribute("id")!.Value;
                 if (id.Id.Contains("_venture")) continue;
 
-                TagMap[id] = [.. xware.Attribute("tags")?.Value.Split(' ').Select(Tags.Tag) ?? []];
+                TagMap[id] = [.. xware.Attribute("tags")?.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(Tags.Tag) ?? []];
                 Ware unit = XWare(xware);
                 Product? convertible = XProduct(unit, xware);
                 IExtendable? extendable = XEndPoint(convertible ?? new Product(unit), xware);
@@ -155,7 +155,7 @@ namespace X4Extractor
             restriction:Licenses.Enum(xcomponent.Element("restriction")?.Attribute("licence")!.Value),
             attributes: [.. TagMap[@base.Id]],
             economy: [.. Factions.Where(fe => xcomponent.Elements("owner")
-                .Any(xo => xo.Attribute("faction")!.Value == fe.Id.ToString())).Select(f => f.Id)]
+                .Any(xo => xo.Attribute("faction")!.Value.Equals(fe.Id.ToString(), StringComparison.OrdinalIgnoreCase))).Select(f => f.Id)]
         ) : null;
     }
 }

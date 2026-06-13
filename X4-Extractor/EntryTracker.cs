@@ -172,8 +172,8 @@ namespace X4Extractor
             if (workspace.GetFiles().Any(fi => fi.Name.Contains(".html")))
             {
                 Maingame(path);
-                _afloats.ForEach(Tracking);
-                _afloats.Clear();
+                Remapping(workspace.FullName);
+                _afloats.ForEach(Tracking); _afloats.Clear();
             }
             else
             {
@@ -290,7 +290,7 @@ namespace X4Extractor
             Name = (TextRef)xfaction.Attribute("name")!.Value,
             Description = (TextRef)xfaction.Attribute("description")!.Value,
             ShortName = (TextRef)xfaction.Attribute("shortname")!.Value,
-            Tags = xfaction.Attribute("tags")?.Value.Split(' ') ?? [],
+            Tags = xfaction.Attribute("tags")?.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
             Licenses = [.. xfaction.Element("licences")?.Elements("licence")
                 .Where(xl=> xl.Attribute("name") is not null)
                 .Select(xl=> new FactionEntry.LicenseEntry() {
@@ -308,11 +308,14 @@ namespace X4Extractor
             Group = xware.Attribute("group")?.Value,
             Name = (TextRef)xware.Attribute("name")!.Value,
             Description = (TextRef)(xware.Attribute("description")?.Value ?? TextRef.Invalid),
-            Tags = xware.Attribute("tags")?.Value.Split(' ') ?? []
+            Tags = xware.Attribute("tags")?.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? []
         };
 
         private int Remapping(string local)
         {
+            string Redirect(string url) =>
+                !url.Contains("extensions\\ego_dlc_") ? url : string.Join('\\',url.Substring(19).Split('\\')[1..]);
+
             XElement redirectory = XDocument.Load(Path.Combine(local, "index", "macros.xml")).Root!;
             redirectory.Add(XDocument.Load(Path.Combine(local, "index", "components.xml")).Root!.Elements());
             if (!Partitions.ContainsKey(local))
@@ -320,7 +323,7 @@ namespace X4Extractor
                     .First(e => e.Attribute("value")!.Value.Contains("extensions\\ego_dlc_"))
                     .Attribute("value")!.Value.Substring(19).Split('\\')[0]);
             foreach (XElement dict in redirectory.Elements("entry"))
-                Redirections[dict.Attribute("name")!.Value] = Path.Combine(local, dict.Attribute("value")!.Value);
+                Redirections[dict.Attribute("name")!.Value] = Path.Combine(local, Redirect(dict.Attribute("value")!.Value) + ".xml");
             foreach (string lookup in FetchGroups)
             {
                 string groupxml = Path.Combine(local, EnvConfig.DataPath, lookup + "groups.xml");

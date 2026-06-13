@@ -1,8 +1,7 @@
-﻿using System.ComponentModel;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("X4-Data")]
-// partial functionalities
+// possible partial functionalities
 
 namespace X4Extractor
 {
@@ -54,19 +53,18 @@ namespace X4Extractor
 
     public interface IExtendable : IWare
     {
-        public string Source { get; init; }
+        public object Source { get; }
         public List<Factions> Economy { get; }
         public Licenses? Restriction { get; }
     }
 
     public partial record EndPoint : Product, IExtendable
     {
+        object IExtendable.Source => Source;
         public string Source { get; init; }
         public List<Tags> Attributes { get; init; } = [];
         public List<Factions> Economy { get; init; } = [];
         public Licenses? Restriction { get; init; }
-
-        internal object? Reference;
 
         public EndPoint(Product @base, string source, Licenses? restriction,
             List<Tags> attributes, List<Factions> economy) : base(@base)

@@ -179,6 +179,10 @@ namespace X4Extractor
         public override string ToString() => char.ToUpper(Id[0]) + Id.Substring(1);
         public override int GetHashCode() => Id.GetHashCode();
 
+        public bool Equals(Wares? other) => other != null && string.Equals(this.Id, other.Value.Id, StringComparison.OrdinalIgnoreCase);
+        public static bool operator ==(Wares? left, Wares? right) => left.Equals(right);
+        public static bool operator !=(Wares? left, Wares? right) => !left.Equals(right);
+
         public static Wares Ware(string id) =>
             EnumPool.TryGetValue(id.ToLower(), out Wares venum) ? venum : new Wares(id);
         public static Wares? Enum(string? id)
@@ -255,6 +259,10 @@ namespace X4Extractor
         public override string ToString() => char.ToUpper(Id[0]) + Id.Substring(1);
         public override int GetHashCode() => Id.GetHashCode();
 
+        public bool Equals(Licenses? other) => other != null && string.Equals(this.Id, other.Value.Id, StringComparison.OrdinalIgnoreCase);
+        public static bool operator ==(Licenses? left, Licenses? right) => left.Equals(right);
+        public static bool operator !=(Licenses? left, Licenses? right) => !left.Equals(right);
+
         public static Licenses License(string id) =>
             EnumPool.TryGetValue(id.ToLower(), out Licenses venum) ? venum : new Licenses(id);
         public static Licenses? Enum(string? id)
@@ -323,6 +331,11 @@ namespace X4Extractor
             ? venum : throw new InvalidOperationException("VEnum entry not found");
         public override string ToString() => char.ToUpper(Id[0]) + Id.Substring(1);
         public override int GetHashCode() => Id.GetHashCode();
+
+        public bool Equals(Tags? other) => other != null && string.Equals(this.Id, other.Value.Id, StringComparison.OrdinalIgnoreCase);
+        public bool Equals(string? entry) => entry != null && string.Equals(this.Id, entry, StringComparison.OrdinalIgnoreCase);
+        public static bool operator==(Tags? left, Tags? right) => left.Equals(right);
+        public static bool operator!=(Tags? left, Tags? right) => !left.Equals(right);
 
         public static Tags Tag(string id) =>
             EnumPool.TryGetValue(id.ToLower(), out Tags venum) ? venum : new Tags(id);

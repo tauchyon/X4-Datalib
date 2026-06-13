@@ -2,13 +2,7 @@
 
 namespace X4Data
 {
-    public enum EWare
-    {
-        Virtual = 0,
-        Basic = 1,
-        Complex = 2,
-        Extends = 3,
-    }
+    public enum DeclLevel : byte { Virtual, Basic, Complex, Extendable }
 
     public class X4Context
     {
@@ -18,9 +12,9 @@ namespace X4Data
         public static X4Context Build(string entrypath) => _database is null ? _database = new(X4Wares.Initbase(entrypath)) : throw new InvalidOperationException("Context already initialized");
         private X4Context(Extractor basedata)
         {
-            Lookup = basedata.Endpoint.Select(e => (e.Id, EWare.Extends))
-                .Concat(basedata.Complex.Select(p => (p.Id, EWare.Complex)))
-                .Concat(basedata.Basic.Select(w => (w.Id, EWare.Basic)))
+            Lookup = basedata.Endpoint.Select(e => (e.Id, Extends: DeclLevel.Extendable))
+                .Concat(basedata.Complex.Select(p => (p.Id, DeclLevel.Complex)))
+                .Concat(basedata.Basic.Select(w => (w.Id, DeclLevel.Basic)))
                 .ToDictionary(x => x.Id, x => x.Item2);
 
             EndPoints = basedata.Endpoint.Cast<EndPoint>().ToDictionary(endpoint => endpoint.Id, endpoint => endpoint);
@@ -42,9 +36,12 @@ namespace X4Data
             FactionDomains = basedata.Domains;
             WareDomains = basedata.Partitions;
             FormulaDomains = basedata.Recipes;
+
+            Profiles = Extendable.Select(site => (site, new Profile(site, out _)))
+                .ToDictionary(tup => tup.site.Id, tup => tup.Item2);
         }
 
-        public Dictionary<Wares, EWare> Lookup { get; init; }
+        public Dictionary<Wares, DeclLevel> Lookup { get; init; }
 
         public Dictionary<Wares, IWare> Any { get; init; }
         public Dictionary<Wares, Ware> Wares { get; init; }
@@ -63,5 +60,12 @@ namespace X4Data
         public Dictionary<Factions, Gamepart> FactionDomains { get; init; }
         public Dictionary<Wares, Gamepart> WareDomains { get; init; }
         public Dictionary<Formula, Gamepart> FormulaDomains { get; init; }
+
+        // <==== ↑ X4-Extractor | X4-Data ↓ ====> //
+
+        public Dictionary<Wares, Profile> Profiles { get; init; }
+
+        internal Dictionary<Wares, Extendable> Relays { get; set; }
+        internal HashSet<Extendable> Components { get; set; }
     }
 }
